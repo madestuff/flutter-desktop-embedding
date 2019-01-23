@@ -14,6 +14,7 @@
 #ifndef LIBRARY_COMMON_GLFW_TEXT_INPUT_PLUGIN_H_
 #define LIBRARY_COMMON_GLFW_TEXT_INPUT_PLUGIN_H_
 
+#include <iostream>
 #include <map>
 #include <memory>
 
@@ -43,6 +44,9 @@ class TextInputPlugin : public KeyboardHookHandler {
 
   // Sends an action triggered by the Enter key to the Flutter engine.
   void EnterPressed(TextInputModel *model);
+
+  // Copies the current text of the given model to the system clipboard
+  void CopyToClipboard(GLFWwindow *window, std::u32string text);
 
   // Called when a method is called on |channel_|;
   void HandleMethodCall(const MethodCall<Json::Value> &method_call,

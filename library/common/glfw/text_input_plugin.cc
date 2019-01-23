@@ -15,7 +15,6 @@
 
 #include <codecvt>
 #include <cstdint>
-#include <iostream>
 #include <locale>
 
 #include "library/include/flutter_desktop_embedding/json_method_codec.h"
@@ -65,15 +64,32 @@ void TextInputPlugin::KeyboardHook(GLFWwindow *window, int key, int scancode,
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     switch (key) {
       case GLFW_KEY_LEFT:
-        if (active_model_->MoveCursorBack()) {
-          SendStateUpdate(*active_model_);
+        // if shift is pressed dont just move the cursor but also select the
+        // moved text
+        if ((mods & GLFW_MOD_SHIFT)) {
+          if (active_model_->MoveSelectBack()) {
+            SendStateUpdate(*active_model_);
+          }
+        } else {
+          if (active_model_->MoveCursorBack()) {
+            SendStateUpdate(*active_model_);
+          }
         }
         break;
       case GLFW_KEY_RIGHT:
-        if (active_model_->MoveCursorForward()) {
-          SendStateUpdate(*active_model_);
+        // if shift is pressed dont just move the cursor but also select the
+        // moved text
+        if ((mods & GLFW_MOD_SHIFT)) {
+          if (active_model_->MoveSelectForward()) {
+            SendStateUpdate(*active_model_);
+          }
+        } else {
+          if (active_model_->MoveCursorForward()) {
+            SendStateUpdate(*active_model_);
+          }
         }
         break;
+
       case GLFW_KEY_END:
         active_model_->MoveCursorToEnd();
         SendStateUpdate(*active_model_);
@@ -92,6 +108,43 @@ void TextInputPlugin::KeyboardHook(GLFWwindow *window, int key, int scancode,
           SendStateUpdate(*active_model_);
         }
         break;
+
+        // Need to add keyboard layouts or work with scancodes?
+      case GLFW_KEY_C:
+        if ((mods & GLFW_MOD_CONTROL)) {
+          CopyToClipboard(window, active_model_->GetSelected());
+        }
+        break;
+
+        // Need to add keyboard layouts or work with scancodes?
+      case GLFW_KEY_V:
+        if ((mods & GLFW_MOD_CONTROL)) {
+          if (active_model_->Insert(glfwGetClipboardString(window))) {
+            SendStateUpdate(*active_model_);
+          }
+        }
+        break;
+
+        // Need to add keyboard layouts or work with scancodes?
+      case GLFW_KEY_A:
+        if ((mods & GLFW_MOD_CONTROL)) {
+          if (active_model_->SelectAll()) {
+            SendStateUpdate(*active_model_);
+          }
+        }
+        break;
+
+        // Need to add keyboard layouts or work with scancodes?
+      case GLFW_KEY_X:
+        if ((mods & GLFW_MOD_CONTROL)) {
+          auto cut_string = active_model_->Cut();
+          if (!cut_string.empty()) {
+            CopyToClipboard(window, cut_string);
+            SendStateUpdate(*active_model_);
+          }
+        }
+        break;
+
       case GLFW_KEY_ENTER:
         EnterPressed(active_model_);
       default:
@@ -213,6 +266,15 @@ void TextInputPlugin::EnterPressed(TextInputModel *model) {
   args->append(model->input_action());
 
   channel_->InvokeMethod(kPerformActionMethod, std::move(args));
+}
+
+void TextInputPlugin::CopyToClipboard(GLFWwindow *window, std::u32string text) {
+  if (!text.empty()) {
+    std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
+    auto p = reinterpret_cast<const int32_t *>(text.data());
+    std::string t = convert.to_bytes(p, p + text.size());
+    glfwSetClipboardString(window, t.data());
+  }
 }
 
 }  // namespace flutter_desktop_embedding

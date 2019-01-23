@@ -43,7 +43,8 @@ TextInputModel::TextInputModel(int client_id, const Json::Value &config)
     : text_(),
       client_id_(client_id),
       selection_base_(text_.begin()),
-      selection_extent_(text_.begin()) {
+      selection_extent_(text_.begin()),
+      selection_cursor_(text_.begin()) {
   input_action_ = config[kTextInputAction].asString();
   Json::Value input_type_info = config[kTextInputType];
   input_type_ = input_type_info[kTextInputTypeName].asString();
@@ -62,8 +63,12 @@ bool TextInputModel::SetEditingState(size_t selection_base,
     return false;
   }
   text_ = std::u32string(text);
+
   selection_base_ = text_.begin() + selection_base;
   selection_extent_ = text_.begin() + selection_extent;
+
+  // Set the selection cursor to the end of the selection
+  selection_cursor_ = selection_extent_;
   return true;
 }
 
@@ -108,6 +113,55 @@ bool TextInputModel::Delete() {
   return false;
 }
 
+bool TextInputModel::SelectAll() {
+  if (!text_.empty()) {
+    selection_base_ = text_.begin();
+    selection_extent_ = text_.end();
+
+    // if we select all set the selection cursor to the end of text
+    selection_cursor_ = text_.end();
+    return true;
+  }
+  return false;  // no need to send an update
+}
+
+std::u32string TextInputModel::GetSelected() {
+  if (selection_base_ != selection_extent_) {
+    return std::u32string(selection_base_, selection_extent_);
+  }
+  return std::u32string();
+}
+
+bool TextInputModel::Insert(std::string text) {
+  if (text.empty()) return false;  // empty clipboard
+
+  std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
+  auto int_string = convert.from_bytes(text);
+  std::u32string u32text =
+      std::u32string(reinterpret_cast<char32_t const *>(int_string.data()),
+                     int_string.length());
+
+  if (selection_base_ != selection_extent_) {
+    DeleteSelected();
+  }
+  selection_extent_ =
+      text_.insert(selection_extent_, u32text.begin(), u32text.end());
+  selection_extent_ += u32text.length();
+  selection_base_ = selection_extent_;
+  return true;
+}
+
+std::u32string TextInputModel::Cut() {
+  if (selection_base_ != selection_extent_) {
+    std::u32string cut_string = GetSelected();
+    DeleteSelected();
+    return cut_string;
+    return cut_string;
+    return cut_string;
+  }
+  return std::u32string();
+}
+
 void TextInputModel::MoveCursorToBeginning() {
   selection_base_ = text_.begin();
   selection_extent_ = text_.begin();
@@ -144,6 +198,40 @@ bool TextInputModel::MoveCursorBack() {
   if (selection_base_ != text_.begin()) {
     selection_base_--;
     selection_extent_--;
+    return true;
+  }
+  return false;
+}
+
+bool TextInputModel::MoveSelectForward() {
+  // if something is selected move the selection based on the selection cursor
+  if (selection_base_ != selection_extent_) {
+    if (selection_cursor_ == selection_base_) {
+      selection_base_++;
+      selection_cursor_++;
+      return true;
+    }
+  }
+  if (selection_extent_ != text_.end()) {
+    selection_extent_++;
+    selection_cursor_ = selection_extent_;
+    return true;
+  }
+  return false;
+}
+
+bool TextInputModel::MoveSelectBack() {
+  // if something is selected move the selection based on the selection cursor
+  if (selection_base_ != selection_extent_) {
+    if (selection_cursor_ == selection_extent_) {
+      selection_extent_--;
+      selection_cursor_--;
+      return true;
+    }
+  }
+  if (selection_base_ != text_.begin()) {
+    selection_base_--;
+    selection_cursor_ = selection_base_;
     return true;
   }
   return false;

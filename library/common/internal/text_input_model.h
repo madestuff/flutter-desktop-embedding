@@ -57,6 +57,28 @@ class TextInputModel {
   // Returns true if any deletion actually occurred.
   bool Backspace();
 
+  // Select the whole text.
+  //
+  // Return true if text got selected or false if there is no text.
+  bool SelectAll();
+
+  // Returns the selected text.
+  //
+  // Return either the selected text or and empty string if nothing is selected.
+  std::u32string GetSelected();
+
+  // Inserts a string.
+  //
+  // Either appends after the cursor (when selection base and extent are the
+  // same), or deletes the selected characters, replacing the text with the
+  // string specified.
+  bool Insert(std::string text);
+
+  // Cuts a string and returns the cut one
+  //
+  // Returns the cut string or an empty string if nothing was cut
+  std::u32string Cut();
+
   // Attempts to move the cursor backward.
   //
   // Returns true if the cursor could be moved. Changes base and extent to be
@@ -68,6 +90,18 @@ class TextInputModel {
   //
   // Returns true if the cursor could be moved.
   bool MoveCursorForward();
+
+  // Attempts to move the selection back
+  //
+  // Returns true if the selection could be moved back and false if it is at the
+  // beginning of the text.
+  bool MoveSelectBack();
+
+  // Attempts to move the selection forward
+  //
+  // Returns true if the selection could be moved forward and false if it is at
+  // the end of the text.
+  bool MoveSelectForward();
 
   // Attempts to move the cursor to the beginning.
   //
@@ -102,6 +136,10 @@ class TextInputModel {
   std::string input_action_;
   std::u32string::iterator selection_base_;
   std::u32string::iterator selection_extent_;
+
+  // we need a selection cursor to know where we are while moving the selection
+  // using MoveSelectX()
+  std::u32string::iterator selection_cursor_;
 };
 
 }  // namespace flutter_desktop_embedding
