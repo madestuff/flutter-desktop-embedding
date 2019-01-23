@@ -13,7 +13,9 @@
 // limitations under the License.
 #include "library/common/internal/text_input_model.h"
 
+#include <codecvt>
 #include <iostream>
+#include <locale>
 
 // TODO(awdavies): Need to fix this regarding issue #47.
 static constexpr char kComposingBaseKey[] = "composingBase";
@@ -38,7 +40,7 @@ static constexpr char kTextInputTypeName[] = "name";
 namespace flutter_desktop_embedding {
 
 TextInputModel::TextInputModel(int client_id, const Json::Value &config)
-    : text_(""),
+    : text_(),
       client_id_(client_id),
       selection_base_(text_.begin()),
       selection_extent_(text_.begin()) {
@@ -51,7 +53,7 @@ TextInputModel::~TextInputModel() {}
 
 bool TextInputModel::SetEditingState(size_t selection_base,
                                      size_t selection_extent,
-                                     const std::string &text) {
+                                     const std::u32string &text) {
   if (selection_base > selection_extent) {
     return false;
   }
@@ -59,7 +61,7 @@ bool TextInputModel::SetEditingState(size_t selection_base,
   if (selection_extent > text.size()) {
     return false;
   }
-  text_ = std::string(text);
+  text_ = std::u32string(text);
   selection_base_ = text_.begin() + selection_base;
   selection_extent_ = text_.begin() + selection_extent;
   return true;
@@ -71,7 +73,7 @@ void TextInputModel::DeleteSelected() {
   selection_extent_ = selection_base_;
 }
 
-void TextInputModel::AddCharacter(char c) {
+void TextInputModel::AddCharacter(char32_t c) {
   if (selection_base_ != selection_extent_) {
     DeleteSelected();
   }
@@ -158,7 +160,11 @@ Json::Value TextInputModel::GetState() const {
   editing_state[kSelectionExtentKey] =
       static_cast<int>(selection_extent_ - text_.begin());
   editing_state[kSelectionIsDirectionalKey] = false;
-  editing_state[kTextKey] = text_;
+
+  // TODO: use char32_t with workaround for Visual Studio 2015+ bug VSO#143857
+  std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
+  auto p = reinterpret_cast<const int32_t *>(text_.data());
+  editing_state[kTextKey] = convert.to_bytes(p, p + text_.size());
 
   // TODO(stuartmorgan): Move client_id out up to the plugin so that this
   // function just returns the editing state.

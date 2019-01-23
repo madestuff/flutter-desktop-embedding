@@ -13,8 +13,10 @@
 // limitations under the License.
 #include "library/common/glfw/text_input_plugin.h"
 
+#include <codecvt>
 #include <cstdint>
 #include <iostream>
+#include <locale>
 
 #include "library/include/flutter_desktop_embedding/json_method_codec.h"
 
@@ -51,7 +53,7 @@ void TextInputPlugin::CharHook(GLFWwindow *window, unsigned int code_point) {
   }
   // TODO(awdavies): Actually handle potential unicode characters. Probably
   // requires some ICU data or something.
-  active_model_->AddCharacter(static_cast<char>(code_point));
+  active_model_->AddCharacter(code_point);
   SendStateUpdate(*active_model_);
 }
 
@@ -176,8 +178,15 @@ void TextInputPlugin::HandleMethodCall(
                       "Selection base/extent values invalid.");
         return;
       }
-      active_model_->SetEditingState(selection_base.asInt(),
-                                     selection_extent.asInt(), text.asString());
+
+      // TODO: use char32_t with workaround for Visual Studio 2015+ bug
+      // VSO#143857
+      std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
+      auto int_string = convert.from_bytes(text.asString());
+      active_model_->SetEditingState(
+          selection_base.asInt(), selection_extent.asInt(),
+          std::u32string(reinterpret_cast<char32_t const *>(int_string.data()),
+                         int_string.length()));
     } else {
       // Unhandled method.
       result->NotImplemented();
